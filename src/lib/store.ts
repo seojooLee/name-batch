@@ -102,13 +102,13 @@ function sampleEmployees(): Employee[] {
 }
 
 const defaultCompany: Company = {
-  companyName: "라온시큐어(주)",
-  companyEn: "RaonSecure Co., Ltd.",
-  address: "서울특별시 송파구 정의로 8길 9 AK디지털타워",
-  addressEn: "AK Digital Tower, 9 Jeongui-ro 8-gil, Songpa-gu, Seoul",
-  tel: "02-561-4545",
-  fax: "02-561-4546",
-  website: "www.raonsecure.com",
+  companyName: "(주)회사이름",
+  companyEn: "Company Inc.",
+  address: "주소 (한글)",
+  addressEn: "주소 (영문)",
+  tel: "02-1234-5678",
+  fax: "02-1234-5670",
+  website: "www.company.com",
 };
 
 interface StoreState {
