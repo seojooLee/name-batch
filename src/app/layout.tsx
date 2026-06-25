@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "명함 일괄제작 — 직원 명함 양면 대량 생성",
+  title: "라온 네임택 생성 — 직원 명함 배치프로그램",
   description:
     "직원 명단(엑셀/CSV)을 올리면 양면 명함 PDF를 한 번에 생성합니다. 배경 업로드 + 변수 배치.",
 };

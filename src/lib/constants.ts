@@ -17,7 +17,12 @@ export const px = (mm: number) => mm * PX_PER_MM;
 export const fontPx = (pt: number) => pt * MM_PER_PT * PX_PER_MM;
 
 /** Product size presets (mm). Drives the card/preview/PDF dimensions. */
-export const PRODUCT_PRESETS: { id: string; label: string; w: number; h: number }[] = [
+export const PRODUCT_PRESETS: {
+  id: string;
+  label: string;
+  w: number;
+  h: number;
+}[] = [
   { id: "card-h", label: "명함 (가로) 90×50", w: 90, h: 50 },
   { id: "card-v", label: "명함 (세로) 50×90", w: 50, h: 90 },
   { id: "badge-card", label: "사원증/이름표 86×54", w: 86, h: 54 },

@@ -2,19 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { PX_PER_MM } from "@/lib/constants";
+import { PX_PER_MM, RAON_TAG } from "@/lib/constants";
 import { ensurePreviewFonts } from "@/lib/fonts";
+import { urlToBackgroundDataUrl } from "@/lib/imageUtils";
 import { generateBatchPdf, type ExportLayout } from "@/lib/pdf";
 import { triggerDownload } from "@/lib/csv";
 import CardCanvas from "@/components/CardCanvas";
 import DesignPanel from "@/components/DesignPanel";
 import EmployeePanel from "@/components/EmployeePanel";
+import ConfirmModal from "@/components/ConfirmModal";
+import Toaster from "@/components/Toaster";
+import { toast } from "@/lib/toast";
 import type { Side } from "@/lib/types";
 
 export default function Page() {
   const [mounted, setMounted] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportLayout, setExportLayout] = useState<ExportLayout>("a4");
+  const [confirmReset, setConfirmReset] = useState(false);
   const workRef = useRef<HTMLElement>(null);
   const [previewScale, setPreviewScale] = useState(1.6);
 
@@ -23,12 +28,31 @@ export default function Page() {
   const employees = useStore((s) => s.employees);
   const activeSide = useStore((s) => s.activeSide);
   const setActiveSide = useStore((s) => s.setActiveSide);
+  const setBackground = useStore((s) => s.setBackground);
   const resetAll = useStore((s) => s.resetAll);
 
   useEffect(() => {
     setMounted(true);
     ensurePreviewFonts();
   }, []);
+
+  // The Raon name-tag is the default. Its background can't be embedded at store
+  // init (needs the browser to fetch+convert the PNG), so load it here whenever
+  // the card is Raon-sized but has no background yet (first load / after reset).
+  useEffect(() => {
+    if (
+      template.widthMm === RAON_TAG.w &&
+      template.heightMm === RAON_TAG.h &&
+      !template.bgFront
+    ) {
+      urlToBackgroundDataUrl(RAON_TAG.bg)
+        .then((url) => {
+          setBackground("front", url);
+          setBackground("back", url);
+        })
+        .catch(() => {});
+    }
+  }, [template.widthMm, template.heightMm, template.bgFront, setBackground]);
 
   // Auto-fit the preview to the work area so a larger card scales down to stay
   // fully visible instead of being clipped. Small cards scale up (capped).
@@ -50,18 +74,23 @@ export default function Page() {
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [cardWMm, cardHMm]);
+  }, [cardWMm, cardHMm, mounted]);
 
   async function onExport() {
     if (employees.length === 0) return;
     setExporting(true);
     try {
-      const bytes = await generateBatchPdf(template, company, employees, exportLayout);
+      const bytes = await generateBatchPdf(
+        template,
+        company,
+        employees,
+        exportLayout,
+      );
       const blob = new Blob([bytes as BlobPart], { type: "application/pdf" });
       triggerDownload(blob, `명함_일괄_${employees.length}명.pdf`);
     } catch (err) {
       console.error(err);
-      alert("PDF 생성에 실패했습니다. 콘솔을 확인하세요.");
+      toast("PDF 생성에 실패했습니다. 콘솔을 확인하세요.", "error");
     } finally {
       setExporting(false);
     }
@@ -83,13 +112,11 @@ export default function Page() {
       {/* Header */}
       <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold">명함 일괄제작</span>
+          <span className="text-lg font-bold">Raon 네임택 생성</span>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {
-              if (confirm("모든 디자인·직원 데이터를 초기 상태로 되돌릴까요?")) resetAll();
-            }}
+            onClick={() => setConfirmReset(true)}
             className="rounded border border-gray-300 px-2.5 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
           >
             초기화
@@ -139,7 +166,10 @@ export default function Page() {
 
             <div
               className="flex shrink-0 items-center justify-center"
-              style={{ width: baseW * previewScale, height: baseH * previewScale }}
+              style={{
+                width: baseW * previewScale,
+                height: baseH * previewScale,
+              }}
             >
               <CardCanvas side={activeSide} scale={previewScale} />
             </div>
@@ -156,6 +186,21 @@ export default function Page() {
           <EmployeePanel />
         </aside>
       </div>
+
+      <ConfirmModal
+        open={confirmReset}
+        danger
+        title="초기화"
+        message={"모든 디자인·직원 데이터를 초기 상태로 되돌릴까요?\n이 작업은 되돌릴 수 없습니다."}
+        confirmText="초기화"
+        cancelText="취소"
+        onConfirm={() => {
+          resetAll();
+          setConfirmReset(false);
+        }}
+        onCancel={() => setConfirmReset(false)}
+      />
+      <Toaster />
     </div>
   );
 }

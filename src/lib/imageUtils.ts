@@ -1,12 +1,12 @@
-/** Read an uploaded image file, downscale it, and return a JPEG data URL.
- * Keeps localStorage small while staying high-res enough for print
- * (1600px across 90mm ≈ 450 DPI). Transparency is flattened onto white. */
-export function fileToBackgroundDataUrl(
-  file: File,
+/** Read an image blob/file, downscale it, and return a JPEG data URL.
+ * Keeps localStorage small while staying high-res enough for print.
+ * Transparency is flattened onto white. */
+export function imageBlobToJpegDataUrl(
+  blob: Blob,
   maxWidth = 1600,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(blob);
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
@@ -29,6 +29,11 @@ export function fileToBackgroundDataUrl(
     };
     img.src = url;
   });
+}
+
+/** Background images are wide/high-res (1600px across ≈ 450 DPI). */
+export function fileToBackgroundDataUrl(file: File, maxWidth = 1600) {
+  return imageBlobToJpegDataUrl(file, maxWidth);
 }
 
 /** Like fileToBackgroundDataUrl but for an image served by URL (e.g. a bundled

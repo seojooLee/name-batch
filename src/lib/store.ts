@@ -15,10 +15,54 @@ export function raonFields(): Field[] {
   const fields: Field[] = [];
   for (const side of ["front", "back"] as Side[]) {
     fields.push(
-      { id: uid(), side, kind: "photo", text: "", x: 11.36, y: 11.2, w: 37.6, h: 37.6, shape: "circle", fontSize: 9, bold: false, color: "#111111", align: "left" },
-      { id: uid(), side, text: "{{department}}", x: 60, y: 17, fontSize: 15, bold: false, color: "#cfd4de", align: "left" },
-      { id: uid(), side, text: "{{name}}", x: 60, y: 27, fontSize: 34, bold: true, color: "#ffffff", align: "left" },
-      { id: uid(), side, text: "{{title}}", x: 98, y: 31, fontSize: 20, bold: false, color: "#ffffff", align: "left" },
+      {
+        id: uid(),
+        side,
+        kind: "photo",
+        text: "",
+        x: 11.36,
+        y: 11.2,
+        w: 37.6,
+        h: 37.6,
+        shape: "circle",
+        fontSize: 9,
+        bold: false,
+        color: "#111111",
+        align: "left",
+      },
+      {
+        id: uid(),
+        side,
+        text: "{{department}}",
+        x: 60,
+        y: 17,
+        fontSize: 15,
+        bold: false,
+        color: "#cfd4de",
+        align: "left",
+      },
+      {
+        id: uid(),
+        side,
+        text: "{{name}}",
+        x: 60,
+        y: 27,
+        fontSize: 34,
+        bold: true,
+        color: "#ffffff",
+        align: "left",
+      },
+      {
+        id: uid(),
+        side,
+        text: "{{title}}",
+        x: 98,
+        y: 31,
+        fontSize: 20,
+        bold: false,
+        color: "#ffffff",
+        align: "left",
+      },
     );
   }
   return fields;
@@ -29,30 +73,42 @@ function sampleEmployees(): Employee[] {
     {
       id: uid(),
       data: {
-        name: "홍길동", nameEn: "Gildong Hong", title: "팀장", titleEn: "Team Lead",
-        department: "전략기획팀", departmentEn: "Strategy Planning",
-        phone: "02-1234-5678", mobile: "010-1234-5678", email: "gildong@company.com",
+        name: "김라온",
+        nameEn: "Raon Kim",
+        title: "프로",
+        titleEn: "Pro",
+        department: "라온팀",
+        departmentEn: "Raon Team",
+        phone: "02-1234-5678",
+        mobile: "010-1234-5678",
+        email: "raon@raon.com",
       },
     },
     {
       id: uid(),
       data: {
-        name: "김영희", nameEn: "Younghee Kim", title: "대리", titleEn: "Associate",
-        department: "마케팅팀", departmentEn: "Marketing",
-        phone: "02-1234-5679", mobile: "010-9876-5432", email: "younghee@company.com",
+        name: "김영희",
+        nameEn: "Younghee Kim",
+        title: "대리",
+        titleEn: "Associate",
+        department: "마케팅팀",
+        departmentEn: "Marketing",
+        phone: "02-1234-5679",
+        mobile: "010-9876-5432",
+        email: "younghee@company.com",
       },
     },
   ];
 }
 
 const defaultCompany: Company = {
-  companyName: "(주)회사이름",
-  companyEn: "Company Inc.",
-  address: "서울특별시 강남구 테헤란로 123",
-  addressEn: "123 Teheran-ro, Gangnam-gu, Seoul",
-  tel: "02-1234-5678",
-  fax: "02-1234-5670",
-  website: "www.company.com",
+  companyName: "라온시큐어(주)",
+  companyEn: "RaonSecure Co., Ltd.",
+  address: "서울특별시 송파구 정의로 8길 9 AK디지털타워",
+  addressEn: "AK Digital Tower, 9 Jeongui-ro 8-gil, Songpa-gu, Seoul",
+  tel: "02-561-4545",
+  fax: "02-561-4546",
+  website: "www.raonsecure.com",
 };
 
 interface StoreState {
@@ -136,10 +192,14 @@ export const useStore = create<StoreState>()(
               fields: [
                 ...st.template.fields,
                 {
-                  id, side, text,
+                  id,
+                  side,
+                  text,
                   x: st.template.widthMm / 2,
                   y: st.template.heightMm / 2,
-                  fontSize: 9, bold: false, color: "#111111",
+                  fontSize: 9,
+                  bold: false,
+                  color: "#111111",
                   align: "center" as Align,
                 },
               ],
@@ -157,11 +217,18 @@ export const useStore = create<StoreState>()(
               fields: [
                 ...st.template.fields,
                 {
-                  id, side, kind: "photo" as const, text: "",
+                  id,
+                  side,
+                  kind: "photo" as const,
+                  text: "",
                   x: st.template.widthMm / 2 - 11,
                   y: st.template.heightMm / 2 - 14,
-                  w: 22, h: 28, shape: "rect" as const,
-                  fontSize: 9, bold: false, color: "#111111",
+                  w: 22,
+                  h: 28,
+                  shape: "rect" as const,
+                  fontSize: 9,
+                  bold: false,
+                  color: "#111111",
                   align: "left" as Align,
                 },
               ],
@@ -210,12 +277,17 @@ export const useStore = create<StoreState>()(
       addEmployee: (data) =>
         set((st) => {
           const emp = { id: uid(), data };
-          return { employees: [...st.employees, emp], selectedEmployeeId: emp.id };
+          return {
+            employees: [...st.employees, emp],
+            selectedEmployeeId: emp.id,
+          };
         }),
 
       updateEmployee: (id, data) =>
         set((st) => ({
-          employees: st.employees.map((e) => (e.id === id ? { ...e, data } : e)),
+          employees: st.employees.map((e) =>
+            e.id === id ? { ...e, data } : e,
+          ),
         })),
 
       setEmployeePhoto: (id, photo) =>
@@ -248,6 +320,6 @@ export const useStore = create<StoreState>()(
           selectedEmployeeId: null,
         }),
     }),
-    { name: "namecard-batch", version: 1 },
+    { name: "namecard-batch", version: 2 },
   ),
 );

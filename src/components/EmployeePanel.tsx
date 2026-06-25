@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { EMPLOYEE_FIELDS } from "@/lib/constants";
 import { parseEmployeesCsv, downloadTemplateCsv } from "@/lib/csv";
+import { imageBlobToJpegDataUrl } from "@/lib/imageUtils";
+import { toast } from "@/lib/toast";
 import CropModal from "./CropModal";
 
 const emptyForm = () =>
@@ -20,10 +22,12 @@ export default function EmployeePanel() {
 
   const fileRef = useRef<HTMLInputElement>(null);
   const photoRef = useRef<HTMLInputElement>(null);
+  const zipRef = useRef<HTMLInputElement>(null);
   const photoTargetId = useRef<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Record<string, string>>(emptyForm);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [zipBusy, setZipBusy] = useState(false);
 
   function openPhotoPicker(id: string) {
     photoTargetId.current = id;
@@ -49,15 +53,89 @@ export default function EmployeePanel() {
     if (!file) return;
     try {
       const list = await parseEmployeesCsv(file);
-      if (list.length === 0) return alert("CSV에서 직원을 찾지 못했습니다.");
+      if (list.length === 0) {
+        toast("CSV에서 직원을 찾지 못했습니다.", "error");
+        return;
+      }
       appendEmployees(list);
+      toast(`${list.length}명을 추가했습니다.`, "success");
     } catch {
-      alert("CSV를 읽지 못했습니다.");
+      toast("CSV를 읽지 못했습니다.", "error");
+    }
+  }
+
+  // Upload a ZIP of photos; match each image to an employee whose 이름(name)
+  // equals the file name (without extension). e.g. "김라온.jpg" → 김라온.
+  async function onZip(file?: File | null) {
+    if (!file) return;
+    setZipBusy(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = await JSZip.loadAsync(file);
+      // Korean file names from macOS zips are NFD-decomposed; CSV/typed names
+      // are NFC. Normalize both sides so visually-identical names match.
+      const norm = (s: string) => s.trim().normalize("NFC");
+      const imgs = Object.values(zip.files).filter(
+        (f) =>
+          !f.dir &&
+          !f.name.includes("__MACOSX/") &&
+          !f.name.split("/").pop()!.startsWith("._") &&
+          /\.(jpe?g|png|webp|gif|bmp)$/i.test(f.name),
+      );
+      if (imgs.length === 0) {
+        toast("ZIP 안에 이미지가 없습니다.", "error");
+        return;
+      }
+
+      // name -> employee ids (handles duplicates by assigning to all matches)
+      const byName = new Map<string, string[]>();
+      for (const e of employees) {
+        const n = norm(e.data.name ?? "");
+        if (!n) continue;
+        (byName.get(n) ?? byName.set(n, []).get(n)!).push(e.id);
+      }
+
+      let matched = 0;
+      const missed: string[] = [];
+      for (const ent of imgs) {
+        const base = norm(
+          ent.name
+            .split("/")
+            .pop()!
+            .replace(/\.[^.]+$/, ""),
+        );
+        const ids = byName.get(base);
+        if (!ids || ids.length === 0) {
+          missed.push(base);
+          continue;
+        }
+        const blob = await ent.async("blob");
+        const url = await imageBlobToJpegDataUrl(blob, 700);
+        ids.forEach((id) => setEmployeePhoto(id, url));
+        matched += ids.length;
+      }
+
+      const head = `사진 ${matched}명 매칭 완료.`;
+      const tail =
+        missed.length > 0
+          ? `\n이름이 일치하지 않아 건너뜀 ${missed.length}개: ${missed
+              .slice(0, 8)
+              .join(", ")}${missed.length > 8 ? " …" : ""}`
+          : "";
+      toast(head + tail, missed.length > 0 ? "info" : "success");
+    } catch (err) {
+      console.error(err);
+      toast("ZIP을 처리하지 못했습니다.", "error");
+    } finally {
+      setZipBusy(false);
     }
   }
 
   function submitForm() {
-    if (!form.name?.trim()) return alert("이름은 필수입니다.");
+    if (!form.name?.trim()) {
+      toast("이름은 필수입니다.", "error");
+      return;
+    }
     const data = Object.fromEntries(
       Object.entries(form).filter(([, v]) => v.trim() !== ""),
     );
@@ -106,6 +184,16 @@ export default function EmployeePanel() {
             e.target.value = "";
           }}
         />
+        <input
+          ref={zipRef}
+          type="file"
+          accept=".zip,application/zip"
+          className="hidden"
+          onChange={(e) => {
+            onZip(e.target.files?.[0]);
+            e.target.value = "";
+          }}
+        />
       </div>
 
       <div className="p-3">
@@ -114,6 +202,14 @@ export default function EmployeePanel() {
           className="w-full rounded bg-blue-600 py-2 text-sm font-medium text-white hover:bg-blue-700"
         >
           {showForm ? "닫기" : "+ 직원 직접 추가"}
+        </button>
+        <button
+          onClick={() => zipRef.current?.click()}
+          disabled={zipBusy}
+          title="사진 파일 이름이 직원 '이름'과 같으면 자동으로 매칭됩니다 (예: 김라온.jpg)"
+          className="mt-2 w-full rounded border border-gray-300 py-1.5 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+        >
+          {zipBusy ? "매칭 중…" : "사진 ZIP 일괄 매칭"}
         </button>
         {showForm && (
           <div className="mt-2 space-y-1.5 rounded border border-gray-200 p-2">

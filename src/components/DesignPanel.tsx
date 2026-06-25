@@ -2,12 +2,27 @@
 
 import { useRef } from "react";
 import { useStore, raonFields } from "@/lib/store";
-import { COMPANY_FIELDS, PRODUCT_PRESETS, RAON_TAG, round2 } from "@/lib/constants";
+import {
+  COMPANY_FIELDS,
+  PRODUCT_PRESETS,
+  RAON_TAG,
+  round2,
+} from "@/lib/constants";
 import { availableTokens } from "@/lib/tokens";
-import { fileToBackgroundDataUrl, urlToBackgroundDataUrl } from "@/lib/imageUtils";
+import {
+  fileToBackgroundDataUrl,
+  urlToBackgroundDataUrl,
+} from "@/lib/imageUtils";
+import { toast } from "@/lib/toast";
 import type { Align, Side } from "@/lib/types";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
   return (
     <div className="border-b border-gray-200 p-4">
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -30,6 +45,7 @@ export default function DesignPanel() {
   const addField = useStore((s) => s.addField);
   const addPhotoField = useStore((s) => s.addPhotoField);
   const updateField = useStore((s) => s.updateField);
+  const moveField = useStore((s) => s.moveField);
   const removeField = useStore((s) => s.removeField);
   const replaceFields = useStore((s) => s.replaceFields);
 
@@ -52,7 +68,7 @@ export default function DesignPanel() {
       setBackground("front", url);
       setBackground("back", url);
     } catch {
-      alert("라온 네임택 배경을 불러오지 못했습니다.");
+      toast("라온 네임택 배경을 불러오지 못했습니다.", "error");
     }
   }
 
@@ -62,7 +78,7 @@ export default function DesignPanel() {
       const dataUrl = await fileToBackgroundDataUrl(file);
       setBackground(side, dataUrl);
     } catch {
-      alert("이미지를 처리하지 못했습니다.");
+      toast("이미지를 처리하지 못했습니다.", "error");
     }
   }
 
@@ -99,7 +115,10 @@ export default function DesignPanel() {
               step={0.01}
               value={template.widthMm}
               onChange={(e) =>
-                setCardSize(round2(Number(e.target.value)) || template.widthMm, template.heightMm)
+                setCardSize(
+                  round2(Number(e.target.value)) || template.widthMm,
+                  template.heightMm,
+                )
               }
               className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
             />
@@ -113,7 +132,10 @@ export default function DesignPanel() {
               step={0.01}
               value={template.heightMm}
               onChange={(e) =>
-                setCardSize(template.widthMm, round2(Number(e.target.value)) || template.heightMm)
+                setCardSize(
+                  template.widthMm,
+                  round2(Number(e.target.value)) || template.heightMm,
+                )
               }
               className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
             />
@@ -121,7 +143,9 @@ export default function DesignPanel() {
         </div>
       </Section>
 
-      <Section title={`배경 이미지 — ${activeSide === "front" ? "앞면" : "뒷면"}`}>
+      <Section
+        title={`배경 이미지 — ${activeSide === "front" ? "앞면" : "뒷면"}`}
+      >
         <p className="mb-2 text-xs text-gray-500">
           90×50mm로 디자인한 명함 배경(PNG/JPG)을 올리세요.
         </p>
@@ -129,7 +153,9 @@ export default function DesignPanel() {
           <div className="space-y-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={(activeSide === "front" ? template.bgFront : template.bgBack)!}
+              src={
+                (activeSide === "front" ? template.bgFront : template.bgBack)!
+              }
               alt=""
               className="w-full rounded border border-gray-200"
             />
@@ -197,6 +223,40 @@ export default function DesignPanel() {
         <Section title="선택한 사진 영역">
           <div className="mb-3 grid grid-cols-2 gap-2">
             <label className="text-xs text-gray-500">
+              X(mm)
+              <input
+                type="number"
+                step={0.01}
+                value={selectedField.x}
+                onChange={(e) =>
+                  moveField(
+                    selectedField.id,
+                    round2(Number(e.target.value)),
+                    selectedField.y,
+                  )
+                }
+                className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="text-xs text-gray-500">
+              Y(mm)
+              <input
+                type="number"
+                step={0.01}
+                value={selectedField.y}
+                onChange={(e) =>
+                  moveField(
+                    selectedField.id,
+                    selectedField.x,
+                    round2(Number(e.target.value)),
+                  )
+                }
+                className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              />
+            </label>
+          </div>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            <label className="text-xs text-gray-500">
               가로(mm)
               <input
                 type="number"
@@ -205,7 +265,9 @@ export default function DesignPanel() {
                 step={0.01}
                 value={selectedField.w ?? 22}
                 onChange={(e) =>
-                  updateField(selectedField.id, { w: round2(Number(e.target.value)) || 22 })
+                  updateField(selectedField.id, {
+                    w: round2(Number(e.target.value)) || 22,
+                  })
                 }
                 className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
               />
@@ -219,7 +281,9 @@ export default function DesignPanel() {
                 step={0.01}
                 value={selectedField.h ?? 28}
                 onChange={(e) =>
-                  updateField(selectedField.id, { h: round2(Number(e.target.value)) || 28 })
+                  updateField(selectedField.id, {
+                    h: round2(Number(e.target.value)) || 28,
+                  })
                 }
                 className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
               />
@@ -228,11 +292,13 @@ export default function DesignPanel() {
 
           <label className="mb-1 block text-xs text-gray-500">도형</label>
           <div className="mb-3 flex gap-1">
-            {([
-              { v: "rect", label: "네모" },
-              { v: "rounded", label: "둥근네모" },
-              { v: "circle", label: "원" },
-            ] as const).map((o) => (
+            {(
+              [
+                { v: "rect", label: "네모" },
+                { v: "rounded", label: "둥근네모" },
+                { v: "circle", label: "원" },
+              ] as const
+            ).map((o) => (
               <button
                 key={o.v}
                 onClick={() => updateField(selectedField.id, { shape: o.v })}
@@ -258,10 +324,14 @@ export default function DesignPanel() {
 
       {selectedField && selectedField.kind !== "photo" && (
         <Section title="선택한 필드">
-          <label className="mb-1 block text-xs text-gray-500">내용 (변수: {`{{키}}`})</label>
+          <label className="mb-1 block text-xs text-gray-500">
+            내용 (변수: {`{{키}}`})
+          </label>
           <input
             value={selectedField.text}
-            onChange={(e) => updateField(selectedField.id, { text: e.target.value })}
+            onChange={(e) =>
+              updateField(selectedField.id, { text: e.target.value })
+            }
             className="mb-2 w-full rounded border border-gray-300 px-2 py-1.5 text-sm"
           />
           <div className="mb-2 flex flex-wrap gap-1">
@@ -282,6 +352,41 @@ export default function DesignPanel() {
 
           <div className="mb-2 grid grid-cols-2 gap-2">
             <label className="text-xs text-gray-500">
+              X(mm)
+              <input
+                type="number"
+                step={0.01}
+                value={selectedField.x}
+                onChange={(e) =>
+                  moveField(
+                    selectedField.id,
+                    round2(Number(e.target.value)),
+                    selectedField.y,
+                  )
+                }
+                className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              />
+            </label>
+            <label className="text-xs text-gray-500">
+              Y(mm)
+              <input
+                type="number"
+                step={0.01}
+                value={selectedField.y}
+                onChange={(e) =>
+                  moveField(
+                    selectedField.id,
+                    selectedField.x,
+                    round2(Number(e.target.value)),
+                  )
+                }
+                className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+              />
+            </label>
+          </div>
+
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <label className="text-xs text-gray-500">
               크기(pt)
               <input
                 type="number"
@@ -289,7 +394,9 @@ export default function DesignPanel() {
                 max={48}
                 value={selectedField.fontSize}
                 onChange={(e) =>
-                  updateField(selectedField.id, { fontSize: Number(e.target.value) || 9 })
+                  updateField(selectedField.id, {
+                    fontSize: Number(e.target.value) || 9,
+                  })
                 }
                 className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
               />
@@ -299,7 +406,9 @@ export default function DesignPanel() {
               <input
                 type="color"
                 value={selectedField.color}
-                onChange={(e) => updateField(selectedField.id, { color: e.target.value })}
+                onChange={(e) =>
+                  updateField(selectedField.id, { color: e.target.value })
+                }
                 className="mt-0.5 h-8 w-full rounded border border-gray-300"
               />
             </label>
@@ -307,7 +416,9 @@ export default function DesignPanel() {
 
           <div className="mb-3 flex items-center gap-2">
             <button
-              onClick={() => updateField(selectedField.id, { bold: !selectedField.bold })}
+              onClick={() =>
+                updateField(selectedField.id, { bold: !selectedField.bold })
+              }
               className={`rounded border px-3 py-1 text-sm ${
                 selectedField.bold
                   ? "border-blue-500 bg-blue-50 font-bold text-blue-700"
@@ -322,7 +433,9 @@ export default function DesignPanel() {
                   key={a}
                   onClick={() => updateField(selectedField.id, { align: a })}
                   className={`px-2.5 py-1 text-xs ${
-                    selectedField.align === a ? "bg-blue-500 text-white" : "bg-white"
+                    selectedField.align === a
+                      ? "bg-blue-500 text-white"
+                      : "bg-white"
                   }`}
                 >
                   {a === "left" ? "좌" : a === "center" ? "중" : "우"}

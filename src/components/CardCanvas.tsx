@@ -1,9 +1,11 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { PX_PER_MM, px, fontPx, round2 } from "@/lib/constants";
-import { buildContext, resolveText } from "@/lib/tokens";
+import { buildContext, resolveText, availableTokens } from "@/lib/tokens";
+import { imageBlobToJpegDataUrl } from "@/lib/imageUtils";
+import { toast } from "@/lib/toast";
 import type { Field, Side } from "@/lib/types";
 
 const clamp = (v: number, lo: number, hi: number) =>
@@ -24,8 +26,17 @@ export default function CardCanvas({
   const selectField = useStore((s) => s.selectField);
   const moveField = useStore((s) => s.moveField);
   const updateField = useStore((s) => s.updateField);
+  const setEmployeePhoto = useStore((s) => s.setEmployeePhoto);
 
   const ref = useRef<HTMLDivElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  // Live coordinate / size readout shown next to the field being manipulated.
+  const [hud, setHud] = useState<{ id: string; text: string } | null>(null);
+  // Double-click a field to open an editing popover (variable picker + text).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [editPos, setEditPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const tokens = availableTokens(company, employees);
 
   const W = template.widthMm;
   const H = template.heightMm;
@@ -46,9 +57,13 @@ export default function CardCanvas({
     const move = (ev: PointerEvent) => {
       const dx = (ev.clientX - startX) / (PX_PER_MM * scale);
       const dy = (ev.clientY - startY) / (PX_PER_MM * scale);
-      moveField(field.id, clamp(ox + dx, 0, W), clamp(oy + dy, 0, H));
+      const nx = round2(clamp(ox + dx, 0, W));
+      const ny = round2(clamp(oy + dy, 0, H));
+      moveField(field.id, nx, ny);
+      setHud({ id: field.id, text: `X ${nx} · Y ${ny} mm` });
     };
     const up = () => {
+      setHud(null);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
@@ -68,12 +83,13 @@ export default function CardCanvas({
     const move = (ev: PointerEvent) => {
       const dw = (ev.clientX - startX) / (PX_PER_MM * scale);
       const dh = (ev.clientY - startY) / (PX_PER_MM * scale);
-      updateField(field.id, {
-        w: round2(clamp(ow + dw, 5, W - field.x)),
-        h: round2(clamp(oh + dh, 5, H - field.y)),
-      });
+      const nw = round2(clamp(ow + dw, 5, W - field.x));
+      const nh = round2(clamp(oh + dh, 5, H - field.y));
+      updateField(field.id, { w: nw, h: nh });
+      setHud({ id: field.id, text: `${nw} × ${nh} mm` });
     };
     const up = () => {
+      setHud(null);
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
     };
@@ -81,7 +97,42 @@ export default function CardCanvas({
     window.addEventListener("pointerup", up);
   }
 
+  function startEdit(field: Field, rect: DOMRect) {
+    selectField(field.id);
+    setEditValue(field.text);
+    setEditingId(field.id);
+    // Position the popover just under the field, clamped to the viewport.
+    const popW = 230;
+    const x = clamp(rect.left, 8, window.innerWidth - popW - 8);
+    const y = Math.min(rect.bottom + 6, window.innerHeight - 200);
+    setEditPos({ x, y });
+  }
+  function commitEdit() {
+    if (editingId) updateField(editingId, { text: editValue });
+    setEditingId(null);
+  }
+
+  // Double-click a photo box to upload a picture for the previewed employee.
+  function openPhotoUpload() {
+    if (!previewEmployee) {
+      toast("오른쪽 목록에서 직원을 먼저 선택하세요.", "info");
+      return;
+    }
+    photoInputRef.current?.click();
+  }
+  async function onCanvasPhoto(file?: File | null) {
+    if (!file || !previewEmployee) return;
+    try {
+      const url = await imageBlobToJpegDataUrl(file, 700);
+      setEmployeePhoto(previewEmployee.id, url);
+      toast("사진을 적용했습니다.", "success");
+    } catch {
+      toast("이미지를 처리하지 못했습니다.", "error");
+    }
+  }
+
   return (
+    <>
     <div
       ref={ref}
       onPointerDown={(e) => {
@@ -124,6 +175,8 @@ export default function CardCanvas({
             >
               <div
                 onPointerDown={(e) => startDrag(e, f)}
+                onDoubleClick={openPhotoUpload}
+                title="더블클릭하여 사진 업로드"
                 className={`h-full w-full overflow-hidden ${
                   selectedField ? "outline-2 outline-blue-500" : "outline-1 outline-gray-300"
                 } cursor-move outline-dashed`}
@@ -151,6 +204,14 @@ export default function CardCanvas({
                   style={{ touchAction: "none" }}
                 />
               )}
+              {hud?.id === f.id && (
+                <div
+                  className="pointer-events-none absolute -top-4 left-0 z-10 whitespace-nowrap rounded bg-blue-600 px-1 text-white shadow"
+                  style={{ fontSize: 9, lineHeight: "14px", fontWeight: 400 }}
+                >
+                  {hud.text}
+                </div>
+              )}
             </div>
           );
         }
@@ -168,7 +229,8 @@ export default function CardCanvas({
           <div
             key={f.id}
             onPointerDown={(e) => startDrag(e, f)}
-            title={f.text}
+            onDoubleClick={(e) => startEdit(f, e.currentTarget.getBoundingClientRect())}
+            title="더블클릭하여 내용 수정"
             className={`absolute cursor-move whitespace-nowrap leading-none ${
               selected ? "outline-2 outline-blue-500" : "hover:outline-1 hover:outline-blue-300"
             } outline-dashed`}
@@ -179,11 +241,19 @@ export default function CardCanvas({
               fontSize: fontPx(f.fontSize),
               fontWeight: f.bold ? 700 : 400,
               color: isEmpty ? "#c0392b" : f.color,
-              fontFamily: "MalgunGothic, 'Malgun Gothic', sans-serif",
+              fontFamily: "NanumGothic, sans-serif",
               opacity: isEmpty ? 0.7 : 1,
             }}
           >
             {isEmpty ? f.text : resolved}
+            {hud?.id === f.id && (
+              <div
+                className="pointer-events-none absolute -top-4 left-0 z-10 whitespace-nowrap rounded bg-blue-600 px-1 text-white shadow"
+                style={{ fontSize: 9, lineHeight: "14px", fontWeight: 400, transform: "none" }}
+              >
+                {hud.text}
+              </div>
+            )}
           </div>
         );
       })}
@@ -193,5 +263,98 @@ export default function CardCanvas({
         {W}×{H}mm
       </div>
     </div>
+
+    <input
+      ref={photoInputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={(e) => {
+        onCanvasPhoto(e.target.files?.[0]);
+        e.target.value = "";
+      }}
+    />
+
+    {editingId && (
+      <>
+        {/* click-away closes (saves) the popover */}
+        <div className="fixed inset-0 z-40" onPointerDown={commitEdit} />
+        <div
+          className="fixed z-50 w-[230px] rounded-lg border border-gray-200 bg-white p-2.5 shadow-xl"
+          style={{ left: editPos.x, top: editPos.y }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <label className="mb-1 block text-[11px] font-medium text-gray-500">
+            변수 고르기
+          </label>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) setEditValue(`{{${e.target.value}}}`);
+              e.target.value = "";
+            }}
+            className="mb-2 w-full rounded border border-gray-300 px-2 py-1 text-sm"
+          >
+            <option value="">변수 선택…</option>
+            {tokens.map((t) => (
+              <option key={t.key} value={t.key}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+
+          <label className="mb-1 block text-[11px] font-medium text-gray-500">
+            내용 (직접 입력 / 변수 {`{{키}}`})
+          </label>
+          <input
+            autoFocus
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commitEdit();
+              } else if (e.key === "Escape") {
+                setEditingId(null);
+              }
+            }}
+            className="w-full rounded border border-gray-300 px-2 py-1 text-sm"
+          />
+          <div className="mt-1 mb-2 truncate text-[11px] text-gray-400">
+            → {resolveText(editValue, ctx).trim() || "(빈 값)"}
+          </div>
+
+          <div className="flex flex-wrap gap-1">
+            {tokens.map((t) => (
+              <button
+                key={t.key}
+                onClick={() =>
+                  setEditValue((v) => `${v} {{${t.key}}}`.trim())
+                }
+                className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-600 hover:bg-blue-100 hover:text-blue-700"
+              >
+                +{t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-2 flex justify-end gap-1">
+            <button
+              onClick={() => setEditingId(null)}
+              className="rounded border border-gray-300 px-2.5 py-1 text-xs text-gray-600 hover:bg-gray-50"
+            >
+              취소
+            </button>
+            <button
+              onClick={commitEdit}
+              className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700"
+            >
+              저장
+            </button>
+          </div>
+        </div>
+      </>
+    )}
+    </>
   );
 }
