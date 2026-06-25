@@ -1,28 +1,27 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { Align, Company, Employee, Field, Side, Template } from "./types";
-import { CARD_W_MM, CARD_H_MM } from "./constants";
+import { RAON_TAG } from "./constants";
 
 const uid = () =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 
-function defaultFields(): Field[] {
-  return [
-    // Front (Korean)
-    { id: uid(), side: "front", text: "{{companyName}}", x: 8, y: 7, fontSize: 8, bold: true, color: "#2563eb", align: "left" },
-    { id: uid(), side: "front", text: "{{name}}", x: 8, y: 22, fontSize: 15, bold: true, color: "#111111", align: "left" },
-    { id: uid(), side: "front", text: "{{department}} {{title}}", x: 8, y: 31, fontSize: 8, bold: false, color: "#555555", align: "left" },
-    { id: uid(), side: "front", text: "M. {{mobile}}", x: 8, y: 39, fontSize: 7, bold: false, color: "#333333", align: "left" },
-    { id: uid(), side: "front", text: "{{email}}", x: 8, y: 44, fontSize: 7, bold: false, color: "#333333", align: "left" },
-    // Back (English)
-    { id: uid(), side: "back", text: "{{companyEn}}", x: 8, y: 7, fontSize: 8, bold: true, color: "#2563eb", align: "left" },
-    { id: uid(), side: "back", text: "{{nameEn}}", x: 8, y: 22, fontSize: 15, bold: true, color: "#111111", align: "left" },
-    { id: uid(), side: "back", text: "{{titleEn}}, {{departmentEn}}", x: 8, y: 31, fontSize: 8, bold: false, color: "#555555", align: "left" },
-    { id: uid(), side: "back", text: "M. {{mobile}}", x: 8, y: 39, fontSize: 7, bold: false, color: "#333333", align: "left" },
-    { id: uid(), side: "back", text: "{{email}}", x: 8, y: 44, fontSize: 7, bold: false, color: "#333333", align: "left" },
-  ];
+/** Field layout for the Raon name-tag (150×60mm), matching the bundled
+ * template: circular photo left, department/name/title white text on the right.
+ * Applied to both sides so double-sided prints look identical. */
+export function raonFields(): Field[] {
+  const fields: Field[] = [];
+  for (const side of ["front", "back"] as Side[]) {
+    fields.push(
+      { id: uid(), side, kind: "photo", text: "", x: 11.36, y: 11.2, w: 37.6, h: 37.6, shape: "circle", fontSize: 9, bold: false, color: "#111111", align: "left" },
+      { id: uid(), side, text: "{{department}}", x: 60, y: 17, fontSize: 15, bold: false, color: "#cfd4de", align: "left" },
+      { id: uid(), side, text: "{{name}}", x: 60, y: 27, fontSize: 34, bold: true, color: "#ffffff", align: "left" },
+      { id: uid(), side, text: "{{title}}", x: 98, y: 31, fontSize: 20, bold: false, color: "#ffffff", align: "left" },
+    );
+  }
+  return fields;
 }
 
 function sampleEmployees(): Employee[] {
@@ -75,6 +74,7 @@ interface StoreState {
   updateField: (id: string, patch: Partial<Field>) => void;
   moveField: (id: string, x: number, y: number) => void;
   removeField: (id: string) => void;
+  replaceFields: (fields: Field[]) => void;
 
   setCompany: (key: string, value: string) => void;
   addEmployee: (data: Record<string, string>) => void;
@@ -87,13 +87,15 @@ interface StoreState {
   resetAll: () => void;
 }
 
+/** App default: the Raon name-tag. The background image is loaded on mount
+ * (it needs a browser to fetch+convert the PNG to a JPEG data URL). */
 function initialTemplate(): Template {
   return {
-    widthMm: CARD_W_MM,
-    heightMm: CARD_H_MM,
+    widthMm: RAON_TAG.w,
+    heightMm: RAON_TAG.h,
     bgFront: null,
     bgBack: null,
-    fields: defaultFields(),
+    fields: raonFields(),
   };
 }
 
@@ -194,6 +196,12 @@ export const useStore = create<StoreState>()(
             ...st.template,
             fields: st.template.fields.filter((f) => f.id !== id),
           },
+        })),
+
+      replaceFields: (fields) =>
+        set((st) => ({
+          selectedFieldId: null,
+          template: { ...st.template, fields },
         })),
 
       setCompany: (key, value) =>

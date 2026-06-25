@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { useStore } from "@/lib/store";
-import { PX_PER_MM, px, fontPx } from "@/lib/constants";
+import { PX_PER_MM, px, fontPx, round2 } from "@/lib/constants";
 import { buildContext, resolveText } from "@/lib/tokens";
 import type { Field, Side } from "@/lib/types";
 
@@ -23,6 +23,7 @@ export default function CardCanvas({
   const selectedFieldId = useStore((s) => s.selectedFieldId);
   const selectField = useStore((s) => s.selectField);
   const moveField = useStore((s) => s.moveField);
+  const updateField = useStore((s) => s.updateField);
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -46,6 +47,31 @@ export default function CardCanvas({
       const dx = (ev.clientX - startX) / (PX_PER_MM * scale);
       const dy = (ev.clientY - startY) / (PX_PER_MM * scale);
       moveField(field.id, clamp(ox + dx, 0, W), clamp(oy + dy, 0, H));
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  }
+
+  // Drag the bottom-right handle to resize a photo box directly in the editor.
+  function startResize(e: React.PointerEvent, field: Field) {
+    e.preventDefault();
+    e.stopPropagation();
+    selectField(field.id);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const ow = field.w ?? 22;
+    const oh = field.h ?? 28;
+    const move = (ev: PointerEvent) => {
+      const dw = (ev.clientX - startX) / (PX_PER_MM * scale);
+      const dh = (ev.clientY - startY) / (PX_PER_MM * scale);
+      updateField(field.id, {
+        w: round2(clamp(ow + dw, 5, W - field.x)),
+        h: round2(clamp(oh + dh, 5, H - field.y)),
+      });
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
@@ -88,30 +114,42 @@ export default function CardCanvas({
           return (
             <div
               key={f.id}
-              onPointerDown={(e) => startDrag(e, f)}
-              className={`absolute overflow-hidden ${
-                selectedField ? "outline-2 outline-blue-500" : "outline-1 outline-gray-300"
-              } cursor-move outline-dashed`}
+              className="absolute"
               style={{
                 top: px(f.y),
                 left: px(f.x),
                 width: px(f.w ?? 22),
                 height: px(f.h ?? 28),
-                borderRadius: radius,
               }}
             >
-              {photo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={photo}
-                  alt=""
-                  draggable={false}
-                  className="pointer-events-none h-full w-full object-cover"
+              <div
+                onPointerDown={(e) => startDrag(e, f)}
+                className={`h-full w-full overflow-hidden ${
+                  selectedField ? "outline-2 outline-blue-500" : "outline-1 outline-gray-300"
+                } cursor-move outline-dashed`}
+                style={{ borderRadius: radius }}
+              >
+                {photo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={photo}
+                    alt=""
+                    draggable={false}
+                    className="pointer-events-none h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center bg-gray-100 text-[9px] text-gray-400">
+                    사진
+                  </div>
+                )}
+              </div>
+              {selectedField && (
+                <div
+                  onPointerDown={(e) => startResize(e, f)}
+                  title="드래그해서 크기 조절"
+                  className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-nwse-resize rounded-sm border border-white bg-blue-500 shadow"
+                  style={{ touchAction: "none" }}
                 />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gray-100 text-[9px] text-gray-400">
-                  사진
-                </div>
               )}
             </div>
           );
@@ -141,7 +179,7 @@ export default function CardCanvas({
               fontSize: fontPx(f.fontSize),
               fontWeight: f.bold ? 700 : 400,
               color: isEmpty ? "#c0392b" : f.color,
-              fontFamily: "NanumGothic, sans-serif",
+              fontFamily: "MalgunGothic, 'Malgun Gothic', sans-serif",
               opacity: isEmpty ? 0.7 : 1,
             }}
           >

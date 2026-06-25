@@ -1,10 +1,10 @@
 "use client";
 
 import { useRef } from "react";
-import { useStore } from "@/lib/store";
-import { COMPANY_FIELDS, PRODUCT_PRESETS } from "@/lib/constants";
+import { useStore, raonFields } from "@/lib/store";
+import { COMPANY_FIELDS, PRODUCT_PRESETS, RAON_TAG, round2 } from "@/lib/constants";
 import { availableTokens } from "@/lib/tokens";
-import { fileToBackgroundDataUrl } from "@/lib/imageUtils";
+import { fileToBackgroundDataUrl, urlToBackgroundDataUrl } from "@/lib/imageUtils";
 import type { Align, Side } from "@/lib/types";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -31,15 +31,30 @@ export default function DesignPanel() {
   const addPhotoField = useStore((s) => s.addPhotoField);
   const updateField = useStore((s) => s.updateField);
   const removeField = useStore((s) => s.removeField);
+  const replaceFields = useStore((s) => s.replaceFields);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const selectedField = template.fields.find((f) => f.id === selectedFieldId);
   const tokens = availableTokens(company, employees);
 
   const currentPreset =
-    PRODUCT_PRESETS.find(
-      (p) => p.w === template.widthMm && p.h === template.heightMm,
-    )?.id ?? "custom";
+    template.widthMm === RAON_TAG.w && template.heightMm === RAON_TAG.h
+      ? RAON_TAG.id
+      : (PRODUCT_PRESETS.find(
+          (p) => p.w === template.widthMm && p.h === template.heightMm,
+        )?.id ?? "custom");
+
+  async function applyRaonTag() {
+    setCardSize(RAON_TAG.w, RAON_TAG.h);
+    replaceFields(raonFields());
+    try {
+      const url = await urlToBackgroundDataUrl(RAON_TAG.bg);
+      setBackground("front", url);
+      setBackground("back", url);
+    } catch {
+      alert("라온 네임택 배경을 불러오지 못했습니다.");
+    }
+  }
 
   async function onUpload(side: Side, file?: File | null) {
     if (!file) return;
@@ -57,6 +72,10 @@ export default function DesignPanel() {
         <select
           value={currentPreset}
           onChange={(e) => {
+            if (e.target.value === RAON_TAG.id) {
+              applyRaonTag();
+              return;
+            }
             const p = PRODUCT_PRESETS.find((x) => x.id === e.target.value);
             if (p) setCardSize(p.w, p.h);
           }}
@@ -67,6 +86,7 @@ export default function DesignPanel() {
               {p.label}
             </option>
           ))}
+          <option value={RAON_TAG.id}>{RAON_TAG.label}</option>
           <option value="custom">사용자 지정</option>
         </select>
         <div className="grid grid-cols-2 gap-2">
@@ -76,9 +96,10 @@ export default function DesignPanel() {
               type="number"
               min={20}
               max={300}
+              step={0.01}
               value={template.widthMm}
               onChange={(e) =>
-                setCardSize(Number(e.target.value) || template.widthMm, template.heightMm)
+                setCardSize(round2(Number(e.target.value)) || template.widthMm, template.heightMm)
               }
               className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
             />
@@ -89,9 +110,10 @@ export default function DesignPanel() {
               type="number"
               min={20}
               max={300}
+              step={0.01}
               value={template.heightMm}
               onChange={(e) =>
-                setCardSize(template.widthMm, Number(e.target.value) || template.heightMm)
+                setCardSize(template.widthMm, round2(Number(e.target.value)) || template.heightMm)
               }
               className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
             />
@@ -180,9 +202,10 @@ export default function DesignPanel() {
                 type="number"
                 min={5}
                 max={100}
+                step={0.01}
                 value={selectedField.w ?? 22}
                 onChange={(e) =>
-                  updateField(selectedField.id, { w: Number(e.target.value) || 22 })
+                  updateField(selectedField.id, { w: round2(Number(e.target.value)) || 22 })
                 }
                 className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
               />
@@ -193,9 +216,10 @@ export default function DesignPanel() {
                 type="number"
                 min={5}
                 max={100}
+                step={0.01}
                 value={selectedField.h ?? 28}
                 onChange={(e) =>
-                  updateField(selectedField.id, { h: Number(e.target.value) || 28 })
+                  updateField(selectedField.id, { h: round2(Number(e.target.value)) || 28 })
                 }
                 className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm"
               />

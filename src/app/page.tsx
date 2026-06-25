@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
 import { PX_PER_MM } from "@/lib/constants";
 import { ensurePreviewFonts } from "@/lib/fonts";
@@ -15,6 +15,8 @@ export default function Page() {
   const [mounted, setMounted] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportLayout, setExportLayout] = useState<ExportLayout>("a4");
+  const workRef = useRef<HTMLElement>(null);
+  const [previewScale, setPreviewScale] = useState(1.6);
 
   const template = useStore((s) => s.template);
   const company = useStore((s) => s.company);
@@ -27,6 +29,28 @@ export default function Page() {
     setMounted(true);
     ensurePreviewFonts();
   }, []);
+
+  // Auto-fit the preview to the work area so a larger card scales down to stay
+  // fully visible instead of being clipped. Small cards scale up (capped).
+  const cardWMm = template.widthMm;
+  const cardHMm = template.heightMm;
+  useEffect(() => {
+    const el = workRef.current;
+    if (!el) return;
+    const compute = () => {
+      const baseW = cardWMm * PX_PER_MM;
+      const baseH = cardHMm * PX_PER_MM;
+      // Leave room for padding and the side-tabs / caption around the card.
+      const availW = el.clientWidth - 48;
+      const availH = el.clientHeight - 48 - 96;
+      const s = Math.min(2.4, availW / baseW, availH / baseH);
+      setPreviewScale(s > 0.25 ? s : 0.25);
+    };
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [cardWMm, cardHMm]);
 
   async function onExport() {
     if (employees.length === 0) return;
@@ -51,11 +75,8 @@ export default function Page() {
     );
   }
 
-  // Fixed zoom so the card grows/shrinks with its real size (bigger size =
-  // bigger canvas). Oversized cards scroll within the work area.
   const baseW = template.widthMm * PX_PER_MM;
   const baseH = template.heightMm * PX_PER_MM;
-  const previewScale = 1.6;
 
   return (
     <div className="flex h-screen flex-col bg-gray-100 text-gray-900">
@@ -98,8 +119,8 @@ export default function Page() {
           <DesignPanel />
         </aside>
 
-        <main className="min-w-0 flex-1 overflow-auto p-6">
-          <div className="flex min-h-full w-fit min-w-full flex-col items-center justify-center gap-4">
+        <main ref={workRef} className="min-w-0 flex-1 overflow-auto p-6">
+          <div className="flex min-h-full w-full flex-col items-center justify-center gap-4">
             <div className="inline-flex overflow-hidden rounded-lg border border-gray-300 bg-white">
               {(["front", "back"] as Side[]).map((s) => (
                 <button

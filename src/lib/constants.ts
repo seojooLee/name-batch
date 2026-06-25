@@ -8,6 +8,9 @@ export const PX_PER_MM = 4;
 export const PT_PER_MM = 72 / 25.4; // points per millimetre
 export const MM_PER_PT = 25.4 / 72; // millimetres per point
 
+/** Round a millimetre value to 2 decimal places. */
+export const round2 = (n: number) => Math.round(n * 100) / 100;
+
 /** mm -> preview pixels. */
 export const px = (mm: number) => mm * PX_PER_MM;
 /** font points -> preview pixels. */
@@ -21,6 +24,16 @@ export const PRODUCT_PRESETS: { id: string; label: string; w: number; h: number 
   { id: "tag-h", label: "이름표 (가로) 100×70", w: 100, h: 70 },
   { id: "tag-v", label: "이름표 (세로) 70×100", w: 70, h: 100 },
 ];
+
+/** Branded preset: Raon name-tag. Selecting it auto-sets the bundled template
+ * background on both sides and resizes the card to the tag's dimensions. */
+export const RAON_TAG = {
+  id: "raon-tag",
+  label: "라온 네임택 150×60",
+  w: 150,
+  h: 60,
+  bg: "/raon_template.png",
+};
 
 /** Known employee-level fields (per person). key -> Korean label. */
 export const EMPLOYEE_FIELDS: { key: string; label: string }[] = [

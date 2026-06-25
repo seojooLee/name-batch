@@ -3,14 +3,16 @@
  * (pdf-lib embedding). Served locally from /public/fonts so it works offline
  * and avoids CDN/CORS issues.
  *
- * NanumGothic is a TrueType font: pdf-lib can subset it cleanly. (Pretendard's
- * OTF/CFF outlines crash pdf-lib's subsetter with "Not a CFF Font".)
+ * Malgun Gothic (맑은 고딕) is a glyf-based TrueType font: pdf-lib embeds it and
+ * Apple's renderer (Preview/Quick Look) shows every glyph cleanly. The files
+ * are large (~13MB each) so the embedded font dominates the exported PDF size.
+ * (Pretendard's OTF/CFF outlines crash pdf-lib's subsetter with "Not a CFF Font".)
  */
-export const FONT_FAMILY = "NanumGothic";
+export const FONT_FAMILY = "MalgunGothic";
 
 const URLS = {
-  regular: "/fonts/NanumGothic-Regular.ttf",
-  bold: "/fonts/NanumGothic-Bold.ttf",
+  regular: "/fonts/MalgunGothic-Regular.ttf",
+  bold: "/fonts/MalgunGothic-Bold.ttf",
 };
 
 export interface FontBytes {
